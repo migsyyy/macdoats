@@ -24,6 +24,7 @@
   what it does, including Off. Two keys can share the same output.
   - **Mac preset:** fn · ⌃ · ⌥ · ⌘ (unchanged).
   - **Windows preset:** fn → Ctrl, ⌃ → Off, ⌥ → Off, ⌘ → Alt.
+- **Open at login:** one checkbox adds MacDoats to System Settings → General → Login Items.
 - **fn / 🌐 key check:** shows whether tapping fn still opens the emoji picker, with a button that opens the macOS
   setting to turn it off.
 
