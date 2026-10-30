@@ -19,6 +19,7 @@ final class StatusItemController {
         item.button?.toolTip = "MacDoats"
         item.button?.target = self
         item.button?.action = #selector(toggle)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         // Dimmed = Dota not running · plain = running · red pill = cursor lock engaged right now.
         subs.append(engine.$dotaRunning.sink { [weak self] running in self?.item.button?.appearsDisabled = !running })
         subs.append(Publishers.CombineLatest3(engine.$dotaFrontmost, engine.$lockCursor, engine.$trusted)
@@ -30,12 +31,29 @@ final class StatusItemController {
 
     @objc private func toggle() {
         guard let button = item.button else { return }
-        if popover.isShown {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            popover.performClose(nil)
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+        } else if popover.isShown {
             popover.performClose(nil)
         } else {
             engine.refreshExternalSettings()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
+    }
+
+    private lazy var menu: NSMenu = {
+        let m = NSMenu()
+        m.addItem(withTitle: "About MacDoats", action: #selector(about), keyEquivalent: "").target = self
+        m.addItem(.separator())
+        m.addItem(withTitle: "Quit MacDoats", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        return m
+    }()
+
+    /// Standard panel: name, icon, "Version 0.1.0 (build)" straight from Info.plist.
+    @objc private func about() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(nil)
     }
 }
