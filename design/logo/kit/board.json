@@ -1,0 +1,47 @@
+{
+  "brand": "MacDoats",
+  "tagline": "Your Mac, bound to Dota",
+  "brief": "A macOS menu-bar companion for Dota 2: locks the cursor, blocks Mac shortcuts and remaps modifier keys. For Mac players who remember DotA 1. It should feel nostalgic and native to the Mac.",
+  "adjectives": [
+    "nostalgic",
+    "native Mac"
+  ],
+  "criteria": "Success: keeps the Necronomicon and ⌘, reads at 16 px in the menu bar, works in one colour, and stays clear of Valve's shield.",
+  "industry": "software",
+  "mockups": [
+    "app-icon",
+    "readme",
+    "sticker",
+    "tshirt",
+    "favicon-tab",
+    "social"
+  ],
+  "brand_color": "#B8312A",
+  "tile_color": "#15181C",
+  "greyscale": false,
+  "designer": "MacDoats",
+  "round": 3,
+  "concepts": [
+    {
+      "name": "Tome of Command",
+      "symbol": "macdoats-symbol.svg",
+      "lockup": "macdoats-horizontal-color.svg",
+      "stacked": "macdoats-stacked.svg",
+      "avatar": "macdoats-symbol-color-small.svg",
+      "symbol_on_tile": "macdoats-illustration.svg",
+      "symbol_on_dark": "macdoats-symbol-color.svg",
+      "lockup_on_dark": "macdoats-horizontal-color-dark.svg",
+      "idea": "The DotA 1 Necronomicon, its cover sigil swapped for ⌘: your old item, bound to Mac keys.",
+      "rationale": [
+        "Keeps both pieces of equity: the tilted tome and the ⌘",
+        "Flat mark for the menu bar; a detailed from-below tome for the app icon",
+        "Dota red and gold, on Mac-dark ink"
+      ]
+    }
+  ],
+  "recommendation": "Tome of Command: flat mark in the menu bar, detailed tome as the app icon.",
+  "next_steps": [
+    "Commit the kit and the new menu-bar icon",
+    "Trademark/reverse-image check before any public release"
+  ]
+}
