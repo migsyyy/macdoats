@@ -2,11 +2,14 @@
 # Builds build/MacDoats.app (ad-hoc signed).
 set -e
 cd "$(dirname "$0")"
-swift build -c release
+# Universal (Apple silicon + Intel); both slices target macOS 14 (Package.swift).
+ARCHS="--arch arm64 --arch x86_64"
+swift build -c release $ARCHS
+BIN=$(swift build -c release $ARCHS --show-bin-path)
 APP=build/MacDoats.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp .build/release/MacDoats "$APP/Contents/MacOS/"
+cp "$BIN/MacDoats" "$APP/Contents/MacOS/"
 cp Info.plist "$APP/Contents/"
 mkdir -p "$APP/Contents/Resources"
 cp design/logo/kit/export/MacDoats.icns "$APP/Contents/Resources/"
