@@ -7,6 +7,7 @@ enum Dota {
         Color(red: Double(v >> 16 & 0xFF) / 255, green: Double(v >> 8 & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
     }
     static let panelTop = hex(0x1F242A), panelBottom = hex(0x0B0D0F)
+    static let redDark = hex(0x7A1E19)
     static let red = hex(0xB8312A), gold = hex(0xE0C387), radiant = hex(0x6CB33F)
     static let text = hex(0xDCD6CB), muted = hex(0x8A939C), idle = hex(0x56606A)
     static let warn = hex(0xE0862F), away = hex(0xD9B44A)
@@ -43,6 +44,30 @@ struct DotaCheckbox: ToggleStyle {
             .animation(.easeOut(duration: 0.12), value: on)
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Dota 2's red action button: red-to-dark gradient with a lit top edge, black bevel border,
+/// uppercase tracked label. Sinks and darkens when pressed.
+struct DotaRedButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        return configuration.label
+            .labelStyle(.titleAndIcon)
+            .font(.system(size: 11, weight: .bold))
+            .textCase(.uppercase)
+            .tracking(1.2)
+            .foregroundStyle(Dota.bright)
+            .shadow(color: .black.opacity(0.6), radius: 0, y: 1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(LinearGradient(colors: pressed ? [Dota.redDark, Dota.red] : [Dota.red, Dota.redDark],
+                                       startPoint: .top, endPoint: .bottom))
+            .overlay(alignment: .top) { Rectangle().fill(.white.opacity(pressed ? 0 : 0.18)).frame(height: 1) }
+            .clipShape(RoundedRectangle(cornerRadius: 3))
+            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(.black.opacity(0.7), lineWidth: 1))
+            .offset(y: pressed ? 1 : 0)
+            .contentShape(Rectangle())
     }
 }
 
@@ -116,7 +141,8 @@ struct Panel: View {
                 Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
                     .font(.caption2).foregroundStyle(Dota.idle)
                 Spacer()
-                Button("Quit MacDoats") { NSApp.terminate(nil) }.buttonStyle(.borderless).foregroundStyle(Dota.muted)
+                Button { NSApp.terminate(nil) } label: { Label("Quit MacDoats", systemImage: "power") }
+                    .buttonStyle(DotaRedButton())
             }
         }
         .toggleStyle(DotaCheckbox())
