@@ -57,6 +57,8 @@ struct DotaRedButton: ButtonStyle {
             .font(.system(size: 11, weight: .bold))
             .textCase(.uppercase)
             .tracking(1.2)
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(Dota.bright)
             .shadow(color: .black.opacity(0.6), radius: 0, y: 1)
             .padding(.horizontal, 12)
@@ -317,7 +319,7 @@ enum AdvancedWindow {
     }
 }
 
-private struct AdvancedView: View {
+struct AdvancedView: View {
     @ObservedObject var engine: Engine
 
     var body: some View {
@@ -331,8 +333,10 @@ private struct AdvancedView: View {
                 .font(.caption.weight(.bold)).tracking(1.5).foregroundStyle(Dota.gold)
                 Spacer()
                 Button("Reset") { engine.resetShortcuts() }.buttonStyle(.borderless).foregroundStyle(Dota.muted)
-                Button(engine.recording ? "Press keys… (Esc cancels)" : "Record…") { engine.recording.toggle() }
-                    .buttonStyle(.borderedProminent).tint(Dota.red)
+                Button { engine.recording.toggle() } label: {
+                    Label(engine.recording ? "Press keys… (Esc cancels)" : "Record…", systemImage: "record.circle")
+                }
+                    .buttonStyle(DotaRedButton())
             }
             ScrollView {
                 VStack(spacing: 8) {
