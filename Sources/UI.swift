@@ -261,7 +261,7 @@ private struct AdvancedView: View {
             HStack {
                 Group {
                     Text("SHORTCUT").frame(width: 150, alignment: .leading)
-                    Text("WHAT IT DOES")
+                    Text("FUNCTION")
                 }
                 .font(.caption.weight(.bold)).tracking(1.5).foregroundStyle(Dota.gold)
                 Spacer()

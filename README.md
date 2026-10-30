@@ -5,7 +5,7 @@ Menu bar companion for Dota 2 on macOS. Click the MacDoats icon (a ⌘ tome) nex
 - Blocks macOS shortcuts (⌘Q, ⌘W, ⌘H, … ) while Dota is frontmost — one toggle; **Customize…** opens
   the advanced window to edit/record the list
 - Alt-Tab / ⌘Tab switches apps (on by default); Alt is whichever key you mapped to ⌥
-- Customize… window lists each blocked shortcut with what it does, including screenshot / ⌘⇧+number hotkeys (restored on leave/quit/relaunch)
+- Customize… window lists each blocked shortcut with its function, including screenshot / ⌘⇧+number hotkeys (restored on leave/quit/relaunch)
 - Locks the cursor inside the Dota window (panic toggle: ⌃⌥⌘L, works anywhere)
 - Remaps fn / ⌃ / ⌥ / ⌘ by dragging the four key squares; presets: Mac, Windows (Ctrl · Fn · Win · Alt)
 - Shows whether the 🌐 fn key still opens the emoji picker, with a shortcut to Keyboard settings to turn it off
