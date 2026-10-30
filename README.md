@@ -1,6 +1,6 @@
 # MacDoats
 
-Menu bar companion for Dota 2 on macOS. Click the Dota icon next to the battery.
+Menu bar companion for Dota 2 on macOS. Click the MacDoats icon (a ⌘ tome) next to the battery; right-click for About / Quit.
 
 - Blocks macOS shortcuts (⌘Q, ⌘W, ⌘H, … ) while Dota is frontmost — one toggle; **Customize…** opens
   the advanced window to edit/record the list
@@ -13,6 +13,8 @@ Menu bar companion for Dota 2 on macOS. Click the Dota icon next to the battery.
 ## Build & run
 
     ./build.sh && open build/MacDoats.app
+
+The app icon comes from `design/logo/kit/export/MacDoats.icns`, which `build.sh` copies into the bundle.
 
 Needs **Accessibility** (System Settings → Privacy & Security). The build is ad-hoc signed, so every
 rebuild invalidates the grant: remove MacDoats from the list and re-add it.
