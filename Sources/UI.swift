@@ -175,6 +175,8 @@ private struct ModifierRow: View {
             .frame(maxWidth: .infinity)
             Text("Click a key to choose what it does, or drag onto another to swap. Dota only.")
                 .font(.caption2).foregroundStyle(Dota.muted)
+                .lineLimit(1).truncationMode(.tail)
+                .help("Click a key to choose what it does, or drag onto another to swap. Applies only while Dota is focused.")
         }
     }
 
@@ -316,11 +318,15 @@ private struct AdvancedView: View {
                         }
                     }
                 }
+                .padding(.trailing, 14)  // room for the scroller
+                .background(DotaScrollbars())
             }
             .disabled(!engine.blockShortcuts)
             .opacity(engine.blockShortcuts ? 1 : 0.5)
             Text("⌘Tab, ⌘Space and ⌃-arrows are system hotkeys and may not be blockable.")
                 .font(.caption2).foregroundStyle(Dota.muted)
+                .lineLimit(1).truncationMode(.tail)
+                .help("macOS handles ⌘Tab, ⌘Space and the ⌃-arrow Mission Control keys itself, sometimes before MacDoats sees them, so blocking them may not work.")
         }
         .toggleStyle(DotaCheckbox())
         .tint(Dota.red)
@@ -356,5 +362,50 @@ private struct KeyCaps: View {
                     .shadow(color: .black.opacity(0.7), radius: 0, y: 1.5)
             )
             .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color(white: 0.28), lineWidth: 0.5))
+    }
+}
+
+/// Dota-style scroll bar: slim slate knob with a faint gold edge on a recessed dark track.
+final class DotaScroller: NSScroller {
+    override class var isCompatibleWithOverlayScrollers: Bool { true }
+    override class func scrollerWidth(for controlSize: NSControl.ControlSize, scrollerStyle: NSScroller.Style) -> CGFloat { 10 }
+
+    override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {
+        let track = NSRect(x: bounds.midX - 2, y: slotRect.minY + 2, width: 4, height: slotRect.height - 4)
+        NSColor(red: 0.03, green: 0.035, blue: 0.045, alpha: 0.9).setFill()
+        NSBezierPath(roundedRect: track, xRadius: track.width / 2, yRadius: track.width / 2).fill()
+    }
+
+    override func drawKnob() {
+        let k = rect(for: .knob)  // centred in our own bounds: AppKit sizes the knob for a wider scroller
+        let r = NSRect(x: bounds.midX - 3, y: k.minY + 2, width: 6, height: k.height - 4)
+        guard r.height > 0 else { return }
+        let knob = NSBezierPath(roundedRect: r, xRadius: r.width / 2, yRadius: r.width / 2)
+        NSGradient(starting: NSColor(red: 0.42, green: 0.46, blue: 0.51, alpha: 1),
+                   ending: NSColor(red: 0.27, green: 0.30, blue: 0.34, alpha: 1))?.draw(in: knob, angle: 0)
+        NSColor(red: 0.88, green: 0.76, blue: 0.53, alpha: 0.35).setStroke()  // Dota gold edge
+        knob.lineWidth = 1
+        knob.stroke()
+    }
+}
+
+/// Drop into a ScrollView's content as a background: swaps the enclosing NSScrollView's
+/// scrollers for DotaScroller and keeps them visible only when content overflows.
+struct DotaScrollbars: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { Probe() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class Probe: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            DispatchQueue.main.async { [weak self] in
+                guard let sv = self?.enclosingScrollView, !(sv.verticalScroller is DotaScroller) else { return }
+                sv.scrollerStyle = .legacy
+                sv.verticalScroller = DotaScroller()
+                sv.hasHorizontalScroller = false
+                sv.autohidesScrollers = true
+                sv.drawsBackground = false
+            }
+        }
     }
 }
