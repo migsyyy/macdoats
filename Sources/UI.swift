@@ -71,6 +71,53 @@ struct DotaRedButton: ButtonStyle {
     }
 }
 
+/// Covers a settings view while MacDoats lacks Accessibility access: the UI underneath is
+/// blurred and inert, and a card explains why and opens the right System Settings pane.
+/// Disappears on its own once access is granted (Engine polls `trusted`).
+struct AccessGate: ViewModifier {
+    @ObservedObject var engine: Engine
+
+    func body(content: Content) -> some View {
+        content
+            .blur(radius: engine.trusted ? 0 : 4)
+            .allowsHitTesting(engine.trusted)
+            .overlay {
+                if !engine.trusted {
+                    ZStack {
+                        Dota.panelBottom.opacity(0.72)
+                        VStack(spacing: 12) {
+                            Image(systemName: "hand.raised.fill")
+                                .font(.system(size: 30)).foregroundStyle(Dota.gold)
+                            Text("ACCESSIBILITY ACCESS NEEDED")
+                                .font(.headline.weight(.heavy)).tracking(1.5).foregroundStyle(Dota.bright)
+                            Text("MacDoats needs Accessibility access to lock the cursor, block shortcuts and remap keys. "
+                                 + "Turn MacDoats on in System Settings → Privacy & Security → Accessibility.")
+                                .font(.callout).foregroundStyle(Dota.text).multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button {
+                                engine.requestAccess()
+                                NSWorkspace.shared.open(URL(string:
+                                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                            } label: { Label("Grant Access", systemImage: "lock.open.fill") }
+                                .buttonStyle(DotaRedButton())
+                                .padding(.top, 4)
+                            Text("Already listed but still blocked? Remove MacDoats from the list and add it again.")
+                                .font(.caption2).foregroundStyle(Dota.muted).multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(24)
+                        .frame(maxWidth: 320)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Dota.panelTop))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Dota.gold.opacity(0.35), lineWidth: 1))
+                        .shadow(color: .black.opacity(0.6), radius: 12, y: 4)
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.2), value: engine.trusted)
+    }
+}
+
 /// Gray: Dota not running · yellow: running, not focused · green: focused, protections live ·
 /// orange: no Accessibility access, nothing works.
 private struct StatusDot: View {
@@ -102,19 +149,6 @@ struct Panel: View {
                 Text("MACDOATS").font(.headline.weight(.heavy)).tracking(2).foregroundStyle(Dota.gold)
                 Spacer()
                 StatusDot(engine: engine, showsLabel: true)
-            }
-
-            if !engine.trusted {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Dota.warn)
-                    Text("Needs Accessibility access").font(.callout)
-                    Spacer()
-                    Button("Grant…") {
-                        engine.requestAccess()
-                        NSWorkspace.shared.open(URL(string:
-                            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-                    }
-                }
             }
 
             Toggle("Lock cursor to Dota window  (⌃⌥⌘L)", isOn: $engine.lockCursor)
@@ -153,6 +187,7 @@ struct Panel: View {
         .frame(width: 400)
         .background(LinearGradient(colors: [Dota.panelTop, Dota.panelBottom], startPoint: .top, endPoint: .bottom))
         .preferredColorScheme(.dark)
+        .modifier(AccessGate(engine: engine))
     }
 }
 
@@ -335,6 +370,7 @@ private struct AdvancedView: View {
         .frame(minWidth: 340, minHeight: 360)
         .background(LinearGradient(colors: [Dota.panelTop, Dota.panelBottom], startPoint: .top, endPoint: .bottom))
         .preferredColorScheme(.dark)
+        .modifier(AccessGate(engine: engine))
     }
 }
 
