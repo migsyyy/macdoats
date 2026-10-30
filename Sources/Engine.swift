@@ -95,7 +95,9 @@ final class Engine: ObservableObject {
     private var altTabbing = false // holding a synthetic ⌘ for the app switcher
     private let syntheticTag: Int64 = 0x4D63446F // marks our own posted events
 
-    init() {
+    /// `preview`: no event tap, no permission prompt, no hotkey or observer side effects, and
+    /// factory settings with Dota shown as focused. Used by `--screenshots` to render the UI.
+    init(preview: Bool = false) {
         defaults.register(defaults: ["lockCursor": true, "blockShortcuts": true, "allowAltTab": true,
                                      "blockScreenshots": true])
         blockScreenshots = defaults.bool(forKey: "blockScreenshots")
@@ -106,6 +108,13 @@ final class Engine: ObservableObject {
         modLayout = saved.count == 4 ? saved : Mod.mac
         shortcuts = defaults.data(forKey: "shortcuts")
             .flatMap { try? JSONDecoder().decode([Shortcut].self, from: $0) } ?? defaultShortcuts
+
+        if preview {
+            (lockCursor, blockShortcuts, allowAltTab, blockScreenshots) = (true, true, true, true)
+            (modLayout, shortcuts) = (Mod.windows, defaultShortcuts)
+            (trusted, dotaRunning, dotaFrontmost, fnKeyOff, launchAtLogin) = (true, true, true, true, true)
+            return
+        }
 
         // Warping the cursor otherwise freezes local mouse input for ~0.25s.
         CGEventSource(stateID: .combinedSessionState)?.localEventsSuppressionInterval = 0
