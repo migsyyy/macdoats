@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import ServiceManagement
 
 /// A key combo to swallow while Dota is frontmost.
 struct Shortcut: Codable, Hashable, Identifiable {
@@ -188,7 +189,22 @@ final class Engine: ObservableObject {
     @Published private(set) var dotaLocksMouse = false
 
     /// Re-reads settings owned by macOS and Dota. Called each time the panel opens.
+    /// Open at login, via the system Login Items list (System Settings → General → Login Items).
+    /// macOS owns the state, so it's read back rather than stored.
+    @Published private(set) var launchAtLogin = SMAppService.mainApp.status == .enabled
+
+    func setLaunchAtLogin(_ on: Bool) {
+        do {
+            if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+        } catch {
+            NSLog("MacDoats: login item \(on ? "register" : "unregister") failed: \(error)")
+        }
+        if SMAppService.mainApp.status == .requiresApproval { SMAppService.openSystemSettingsLoginItems() }
+        launchAtLogin = SMAppService.mainApp.status == .enabled
+    }
+
     func refreshExternalSettings() {
+        launchAtLogin = SMAppService.mainApp.status == .enabled
         CFPreferencesAppSynchronize("com.apple.HIToolbox" as CFString)
         fnKeyOff = CFPreferencesCopyAppValue("AppleFnUsageType" as CFString, "com.apple.HIToolbox" as CFString) as? Int == 0
 

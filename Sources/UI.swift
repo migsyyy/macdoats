@@ -151,6 +151,8 @@ struct Panel: View {
                 StatusDot(engine: engine, showsLabel: true)
             }
 
+            Toggle("Open MacDoats at login", isOn: Binding(get: { engine.launchAtLogin },
+                                                          set: { engine.setLaunchAtLogin($0) }))
             Toggle("Lock cursor to Dota window  (⌃⌥⌘L)", isOn: $engine.lockCursor)
             if engine.dotaLocksMouse {
                 Text("Dota's own \"Lock Mouse to Window\" is on, so the cursor stays locked even with this off. "
