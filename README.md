@@ -11,6 +11,12 @@
 
 ---
 
+<p align="center">
+  <img src="docs/screenshots/panel.png" width="400" alt="MacDoats settings panel: login, cursor lock, Alt-Tab and shortcut-blocking checkboxes, the four modifier-key squares set to the Windows preset, and a red Quit button">
+  &nbsp;
+  <img src="docs/screenshots/customize.png" width="460" alt="Customize window: blocked shortcuts shown as keycaps, each with its function">
+</p>
+
 ## Features
 
 - **Cursor lock:** the pointer stays inside the Dota window while it's focused, in borderless, windowed and
@@ -31,6 +37,8 @@
 Everything applies **only while Dota is the focused app**. Switch away and your Mac behaves normally.
 
 ## The menu-bar icon
+
+<img src="docs/screenshots/menubar.png" width="187" alt="Menu-bar icon: plain tome while Dota runs, tome on a red pill while the cursor is locked">
 
 | Icon | Meaning |
 |---|---|
@@ -106,7 +114,8 @@ to see and filter key and mouse events. Until it's granted, the settings windows
 swift run MacDoats --selftest
 ```
 
-That runs the modifier-remapping self-check. To try MacDoats without Dota, point it at another app:
+That runs the modifier-remapping self-check. To regenerate the README screenshots from the real views (factory settings, Dota shown as
+focused), run `build/MacDoats.app/Contents/MacOS/MacDoats --screenshots docs/screenshots`. To try MacDoats without Dota, point it at another app:
 
 ```bash
 defaults write dev.macdoats.app targetBundleIDs -array com.apple.TextEdit
