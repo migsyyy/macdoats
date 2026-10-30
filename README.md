@@ -69,7 +69,8 @@ cd macdoats && ./build.sh && open build/MacDoats.app
 ```
 
 On first launch, grant **Accessibility** in System Settings → Privacy & Security → Accessibility. MacDoats needs it
-to see and filter key and mouse events.
+to see and filter key and mouse events. Until it's granted, the settings windows are blurred and locked behind a
+**Grant Access** card that opens the right pane and goes away once access is on.
 
 > The build is signed ad hoc, so every rebuild invalidates the Accessibility grant. After rebuilding, remove
 > MacDoats from the list and add it back.
