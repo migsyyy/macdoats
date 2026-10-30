@@ -39,10 +39,26 @@ Everything applies **only while Dota is the focused app**. Switch away and your 
 
 Click the icon for settings. Right-click it for **About MacDoats** and **Quit**.
 
-## Install
+## Download
 
-MacDoats is built from source for now. You need macOS 14 or later and the Xcode Command Line Tools
-(`xcode-select --install`).
+Grab `MacDoats-<version>.zip` from [Releases](https://github.com/migsyyy/macdoats/releases). It runs on macOS 14 or
+later, on both Apple silicon and Intel.
+
+1. Unzip it and move **MacDoats.app** to Applications.
+2. Open it. MacDoats isn't notarised by Apple yet, so macOS blocks the first launch.
+3. Go to System Settings → Privacy & Security, scroll down, and click **Open Anyway**.
+
+Or clear the download flag in Terminal instead:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/MacDoats.app
+```
+
+4. Grant **Accessibility** when asked (see below).
+
+## Build from source
+
+You need macOS 14 or later and the Xcode Command Line Tools (`xcode-select --install`).
 
 ```bash
 git clone https://github.com/migsyyy/macdoats.git
