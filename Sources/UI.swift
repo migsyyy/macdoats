@@ -158,7 +158,7 @@ struct Panel: View {
             Toggle("Lock cursor to Dota window  (⌃⌥⌘L)", isOn: $engine.lockCursor)
             if engine.dotaLocksMouse {
                 Text("Dota's own \"Lock Mouse to Window\" is on, so the cursor stays locked even with this off. "
-                     + "Turn it off in Dota's settings (or console: in_lock_mouse_to_window 0).")
+                     + "Turn it off in Dota's settings (or console: dota_mouse_window_lock 0).")
                     .font(.caption2).foregroundStyle(Dota.warn)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -169,6 +169,7 @@ struct Panel: View {
                 Button("Customize…") { AdvancedWindow.show(engine: engine) }
                     .buttonStyle(.borderless).foregroundStyle(Dota.gold)
             }
+            AutoAcceptRow(engine: engine)
 
             Rectangle().fill(Dota.gold.opacity(0.2)).frame(height: 1)
 
@@ -192,6 +193,40 @@ struct Panel: View {
         .background(LinearGradient(colors: [Dota.panelTop, Dota.panelBottom], startPoint: .top, endPoint: .bottom))
         .preferredColorScheme(.dark)
         .modifier(AccessGate(engine: engine))
+    }
+}
+
+/// One-shot "Auto-accept next match" plus whatever stops it from working right now.
+private struct AutoAcceptRow: View {
+    @ObservedObject var engine: Engine
+
+    private var note: (String, Color)? {
+        if !engine.dotaRunning { return ("Start Dota to use this.", Dota.muted) }
+        if !engine.logLive {
+            return ("Needs Dota's console log: in Steam, right-click Dota 2 → Properties → Launch Options, "
+                    + "add -condebug, then restart Dota.", Dota.warn)
+        }
+        if !engine.dotaBringsToFront {
+            return ("Dota's \"Bring Dota to foreground on match found\" is off, so MacDoats can't press Accept. "
+                    + "Turn it on in Dota's Options → Advanced.", Dota.warn)
+        }
+        if engine.missedPopup { return ("A match popped while Dota wasn't in front. Accept it yourself.", Dota.warn) }
+        if engine.autoAccept {
+            return ("Presses Return when the accept popup shows and Dota is in front. Keeps your display awake; "
+                    + "turns off when the match starts or after an hour.", Dota.muted)
+        }
+        return nil
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle("Auto-accept next match  (⌃⌥⌘A)", isOn: Binding(get: { engine.autoAccept },
+                                                                set: { engine.setAutoAccept($0) }))
+                .disabled(!engine.canAutoAccept && !engine.autoAccept)
+            if let (text, color) = note {
+                Text(text).font(.caption2).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 
