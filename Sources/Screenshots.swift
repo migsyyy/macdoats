@@ -36,7 +36,8 @@ func renderScreenshots(to dir: String) {
     snap(Panel(engine: engine).clipShape(RoundedRectangle(cornerRadius: 10)), "panel", width: 400)
     snap(AdvancedView(engine: engine).clipShape(RoundedRectangle(cornerRadius: 10)), "customize", width: 460, height: 420)
     snap(HStack(spacing: 18) {
-        ForEach([(MenuIcon.idle, "Dota running"), (MenuIcon.active, "Cursor locked")], id: \.1) { icon, label in
+        ForEach([(MenuIcon.idle, "Dota running"), (MenuIcon.active, "Cursor locked"),
+                 (MenuIcon.queueFrames[0], "In queue"), (MenuIcon.queueFramesArmed[6], "Auto-accept armed")], id: \.1) { icon, label in
             VStack(spacing: 6) {
                 Image(nsImage: icon).renderingMode(icon.isTemplate ? .template : .original).foregroundStyle(.white)
                 Text(label).font(.caption2).foregroundStyle(.white.opacity(0.6)).fixedSize()

@@ -4,33 +4,68 @@ import AppKit
 enum MenuIcon {
     static let size = NSSize(width: 18, height: 18)
 
+    static let pillSize = NSSize(width: 24, height: 18)
+    static let red = NSColor(red: 0.72, green: 0.19, blue: 0.16, alpha: 1)
+    static let green = NSColor(red: 0x6C / 255.0, green: 0xB3 / 255.0, blue: 0x3F / 255.0, alpha: 1) // Radiant
+    static let gold = NSColor(red: 0xE0 / 255.0, green: 0xC3 / 255.0, blue: 0x87 / 255.0, alpha: 1)
+
     /// Idle: template glyph, so macOS draws it white on a dark menu bar (black on a light one).
     static let idle: NSImage = {
-        let img = NSImage(size: size, flipped: false) { _ in drawGlyph(); return true }
+        let img = NSImage(size: size, flipped: false) { _ in drawGlyph(.command); return true }
         img.isTemplate = true
         return img
     }()
 
+    /// Idle with the gold "auto-accept armed" dot. A template image can't carry colour, so the glyph
+    /// is drawn in the menu bar's text colour (the handler runs with the bar's appearance).
+    static let idleArmed = NSImage(size: size, flipped: false) { r in
+        tinted(.command, .controlTextColor).draw(in: r)
+        armedDot(in: r)
+        return true
+    }
+
     /// Cursor lock engaged: white book on a filled Dota-red pill, like the mic-in-use indicator.
-    static let active: NSImage = {
-        let pillSize = NSSize(width: 24, height: 18)
-        return NSImage(size: pillSize, flipped: false) { r in
-            NSColor(red: 0.72, green: 0.19, blue: 0.16, alpha: 1).setFill()
+    static let active = pill(red, .command, armed: false)
+    static let activeArmed = pill(red, .command, armed: true)
+
+    /// In the queue: the ⌘ becomes a 4-point star on a Radiant-green pill. 12 frames cover 0–90°;
+    /// the star's 4-fold symmetry repeats beyond that.
+    static let queueFrames = (0..<12).map { pill(green, .star(CGFloat($0) * 7.5), armed: false) }
+    static let queueFramesArmed = (0..<12).map { pill(green, .star(CGFloat($0) * 7.5), armed: true) }
+
+    enum Sigil { case command, star(CGFloat) } // star angle in degrees, clockwise
+
+    private static func pill(_ color: NSColor, _ sigil: Sigil, armed: Bool) -> NSImage {
+        NSImage(size: pillSize, flipped: false) { r in
+            color.setFill()
             NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5).fill()
-            let white = NSImage(size: size, flipped: false) { g in
-                drawGlyph()
-                NSColor.white.set()
-                g.fill(using: .sourceAtop)
-                return true
-            }
-            white.draw(in: NSRect(x: (pillSize.width - size.width) / 2, y: 0, width: size.width, height: size.height))
+            tinted(sigil, .white).draw(in: NSRect(x: (pillSize.width - size.width) / 2, y: 0, width: size.width, height: size.height))
+            if armed { armedDot(in: r) }
             return true
         }
-    }()
+    }
+
+    private static func tinted(_ sigil: Sigil, _ color: NSColor) -> NSImage {
+        NSImage(size: size, flipped: false) { g in
+            drawGlyph(sigil)
+            color.set()
+            g.fill(using: .sourceAtop)
+            return true
+        }
+    }
+
+    private static func armedDot(in r: NSRect) {
+        let d: CGFloat = 6
+        let dot = NSRect(x: r.maxX - d, y: r.maxY - d, width: d, height: d)
+        NSColor.black.withAlphaComponent(0.6).setFill()
+        NSBezierPath(ovalIn: dot.insetBy(dx: -1, dy: -1)).fill()
+        gold.setFill()
+        NSBezierPath(ovalIn: dot).fill()
+    }
 
     /// The MacDoats mark (small cut, see design/logo/kit/build.py): tilted tome, spine groove,
     /// ribbon, ⌘ cut out of the cover. Drawn in the logo's 256-unit y-down space, scaled to 18 pt.
-    private static func drawGlyph() {
+    private static func drawGlyph(_ sigil: Sigil) {
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
         let t = NSAffineTransform()
@@ -52,7 +87,24 @@ enum MenuIcon {
 
         NSGraphicsContext.current?.compositingOperation = .clear
         NSBezierPath(rect: NSRect(x: 80, y: 32, width: 14, height: 174)).fill()  // spine groove
-        command(cx: 146, cy: 119, h: 9, r: 10, sw: 11).fill()
+        switch sigil {
+        case .command: command(cx: 146, cy: 119, h: 9, r: 10, sw: 11).fill()
+        case .star(let angle): star(cx: 146, cy: 119, outer: 34.5, inner: 10, angle: angle).fill()
+        }
+    }
+
+    /// Four-point star the size of the ⌘: tips reach its box (h + r + r + sw/2 = 34.5 from centre).
+    /// y-down space, so a positive angle turns it clockwise on screen.
+    private static func star(cx: CGFloat, cy: CGFloat, outer: CGFloat, inner: CGFloat, angle: CGFloat) -> NSBezierPath {
+        let path = NSBezierPath()
+        for i in 0..<8 {
+            let a = (angle - 90 + CGFloat(i) * 45) * .pi / 180
+            let rad = i.isMultiple(of: 2) ? outer : inner
+            let p = NSPoint(x: cx + rad * cos(a), y: cy + rad * sin(a))
+            if i == 0 { path.move(to: p) } else { path.line(to: p) }
+        }
+        path.close()
+        return path
     }
 
     /// ⌘ as one even-odd path: outer contour (four 270° loops joined by straight sides), plus
