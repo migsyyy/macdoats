@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import ServiceManagement
+import IOKit.pwr_mgt
 
 /// A key combo to swallow while Dota is frontmost.
 struct Shortcut: Codable, Hashable, Identifiable {
@@ -45,7 +46,7 @@ enum Mod: Int, CaseIterable, Identifiable {
 }
 
 enum Key {
-    static let q: Int64 = 12, w: Int64 = 13, h: Int64 = 4, m: Int64 = 46, l: Int64 = 37
+    static let q: Int64 = 12, w: Int64 = 13, h: Int64 = 4, m: Int64 = 46, l: Int64 = 37, a: Int64 = 0
     static let tab: Int64 = 48, space: Int64 = 49, esc: Int64 = 53
     static let left: Int64 = 123, right: Int64 = 124, up: Int64 = 126
     static let fn: Int64 = 63
@@ -73,6 +74,14 @@ final class Engine: ObservableObject {
     @Published var dotaRunning = false
     @Published var dotaFrontmost = false
     @Published var recording = false
+    /// In the matchmaking queue (only queues this client started; a leader's queue isn't logged for members).
+    @Published private(set) var inQueue = false
+    /// "Auto-accept next match": in memory only. Lasts until that match starts, Dota quits, or an hour.
+    @Published private(set) var autoAccept = false
+    /// console.log is being written for the running Dota (it was launched with -condebug).
+    @Published private(set) var logLive = false
+    /// The last popup came while Dota wasn't in front, so MacDoats didn't press anything.
+    @Published private(set) var missedPopup = false
     /// Dota's main window in CG global coordinates (top-left origin), nil when not frontmost.
     private var bounds: CGRect?
     @Published var lockCursor: Bool { didSet { defaults.set(lockCursor, forKey: "lockCursor") } }
@@ -94,6 +103,10 @@ final class Engine: ObservableObject {
     private var fnDown = false
     private var altTabbing = false // holding a synthetic ⌘ for the app switcher
     private let syntheticTag: Int64 = 0x4D63446F // marks our own posted events
+    private let log = DotaLog()
+    private var accept = AcceptState()
+    private var armedAt = Date.distantPast, queuedAt = Date.distantPast
+    private var awake: IOPMAssertionID = 0
 
     /// `preview`: no event tap, no permission prompt, no hotkey or observer side effects, and
     /// factory settings with Dota shown as focused. Used by `--screenshots` to render the UI.
@@ -112,7 +125,7 @@ final class Engine: ObservableObject {
         if preview {
             (lockCursor, blockShortcuts, allowAltTab, blockScreenshots) = (true, true, true, true)
             (modLayout, shortcuts) = (Mod.windows, defaultShortcuts)
-            (trusted, dotaRunning, dotaFrontmost, fnKeyOff, launchAtLogin) = (true, true, true, true, true)
+            (trusted, dotaRunning, dotaFrontmost, fnKeyOff, launchAtLogin, logLive) = (true, true, true, true, true, true)
             return
         }
 
@@ -138,6 +151,9 @@ final class Engine: ObservableObject {
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in self?.setSystemHotkeys(enabled: true) }
 
+        log.onEvent = { [weak self] in self?.logEvent($0) }
+        log.onReset = { [weak self] in self?.resetLogState() }
+
         if trusted { startTap() } else { requestAccess() }
         // ponytail: 0.5s poll for window moves/resizes and the permission grant; AX observers if it lags.
         Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in self?.tick() }
@@ -157,10 +173,85 @@ final class Engine: ObservableObject {
     private func tick() {
         if !trusted, AXIsProcessTrusted() { trusted = true; startTap() }
         if dotaFrontmost { refreshBounds() }
+        log.poll()
+        logLive = dotaRunning && logIsLive(
+            created: DotaLog.path.flatMap { try? FileManager.default.attributesOfItem(atPath: $0)[.creationDate] as? Date },
+            dotaStarted: dotaApp.flatMap { processStartDate($0.processIdentifier) })
+        if autoAccept, !logLive || Date().timeIntervalSince(armedAt) > 3600 { setAutoAccept(false) }
+        if inQueue, Date().timeIntervalSince(queuedAt) > 3600 { accept.inQueue = false; inQueue = false }
+    }
+
+    private var dotaApp: NSRunningApplication? {
+        NSWorkspace.shared.runningApplications.first { targets.contains($0.bundleIdentifier ?? "") }
+    }
+
+    // MARK: - Auto-accept
+
+    var canAutoAccept: Bool { trusted && logLive }
+
+    /// Arm or disarm. Sounds: Tink on, Pop off, Basso when it can't arm.
+    func setAutoAccept(_ on: Bool) {
+        if on, !canAutoAccept { NSSound(named: "Basso")?.play(); return }
+        guard on != autoAccept else { return }
+        autoAccept = on
+        armedAt = Date()
+        missedPopup = false
+        accept.generation += 1
+        NSSound(named: on ? "Tink" : "Pop")?.play()
+        // The display would otherwise sleep or lock mid-queue, and the popup would be missed.
+        if on {
+            IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
+                                        IOPMAssertionLevel(kIOPMAssertionLevelOn), "MacDoats auto-accept" as CFString, &awake)
+        } else if awake != 0 {
+            IOPMAssertionRelease(awake)
+            awake = 0
+        }
+    }
+
+    private func logEvent(_ e: LogEvent) {
+        switch accept.apply(e, armed: autoAccept, gatesOK: canPressReturn) {
+        case .schedule(let id, let gen):
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.pressReturn(id, gen) }
+        case .warn:
+            missedPopup = true
+            NSSound(named: "Basso")?.play()
+        case .matchStarted where autoAccept:
+            setAutoAccept(false)
+        default: break
+        }
+        if inQueue != accept.inQueue { inQueue = accept.inQueue; queuedAt = Date() }
+    }
+
+    private func pressReturn(_ id: String, _ gen: Int) {
+        if accept.pending == id { accept.pending = nil }
+        // Everything is checked again at the instant of posting; a miss waits for the next status line.
+        guard autoAccept, accept.canPost(id, generation: gen), canPressReturn else { return }
+        postKey(36, down: true, flags: [])
+        postKey(36, down: false, flags: [])
+        accept.pressed.insert(id)
+        missedPopup = false
+        // Dota logs our ReadyUp within about a second if the press landed.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            NSSound(named: self?.accept.answered.contains(id) == true ? "Glass" : "Basso")?.play()
+        }
+    }
+
+    /// Return goes to the frontmost app, so it's posted only into a frontmost Dota on an unlocked screen.
+    private var canPressReturn: Bool {
+        let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
+        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        return AXIsProcessTrusted() && targets.contains(front) && session?["CGSSessionScreenIsLocked"] as? Bool != true
+    }
+
+    private func resetLogState() {
+        accept.reset()
+        inQueue = false
+        if autoAccept { setAutoAccept(false) }
     }
 
     private func refreshRunning() {
-        dotaRunning = NSWorkspace.shared.runningApplications.contains { targets.contains($0.bundleIdentifier ?? "") }
+        dotaRunning = dotaApp != nil
+        if !dotaRunning { resetLogState() }
     }
 
     private func frontmostChanged(_ app: NSRunningApplication?) {
@@ -193,9 +284,12 @@ final class Engine: ObservableObject {
     /// "Press 🌐 key to" in Keyboard settings is Do Nothing. macOS only reads it at login, so MacDoats
     /// can't flip it per game; the panel shows it and links there. Refreshed each time the panel opens.
     @Published private(set) var fnKeyOff = false
-    /// Dota's own "Lock Mouse to Window" (in_lock_mouse_to_window). When on, Dota confines the
-    /// cursor itself and MacDoats' toggle can't release it.
+    /// Dota's own "Lock Mouse to Window" (dota_mouse_window_lock in machine_convars.vcfg). When on,
+    /// Dota confines the cursor itself and MacDoats' toggle can't release it.
     @Published private(set) var dotaLocksMouse = false
+    /// dota_activate_window_on_match_found: Dota comes to the front when a match pops. Auto-accept
+    /// relies on it, since MacDoats only presses Return into a frontmost Dota.
+    @Published private(set) var dotaBringsToFront = true
 
     /// Re-reads settings owned by macOS and Dota. Called each time the panel opens.
     /// Open at login, via the system Login Items list (System Settings → General → Login Items).
@@ -220,10 +314,11 @@ final class Engine: ObservableObject {
         let userdata = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/Steam/userdata")
         let accounts = (try? FileManager.default.contentsOfDirectory(atPath: userdata.path)) ?? []
-        dotaLocksMouse = accounts.contains { id in
-            let cfg = userdata.appendingPathComponent("\(id)/570/remote/cfg/config.cfg")
-            return (try? String(contentsOf: cfg, encoding: .utf8))?.contains("in_lock_mouse_to_window \"1\"") == true
+        let convars = accounts.compactMap {
+            try? String(contentsOf: userdata.appendingPathComponent("\($0)/570/local/cfg/machine_convars.vcfg"), encoding: .utf8)
         }
+        dotaLocksMouse = convars.contains { vcfgFlag($0, "dota_mouse_window_lock") == true }
+        dotaBringsToFront = !convars.contains { vcfgFlag($0, "dota_activate_window_on_match_found") == false }
     }
 
     /// Largest on-screen normal-layer window of the Dota process, in global top-left coordinates
@@ -290,6 +385,11 @@ final class Engine: ObservableObject {
             // Panic switch, works everywhere: ⌃⌥⌘L toggles cursor lock.
             if code == Key.l, event.flags.intersection(modMask) == [.maskControl, .maskAlternate, .maskCommand] {
                 lockCursor.toggle()
+                return nil
+            }
+            // ⌃⌥⌘A arms or disarms auto-accept, with a sound so it works from inside the game.
+            if code == Key.a, event.flags.intersection(modMask) == [.maskControl, .maskAlternate, .maskCommand] {
+                setAutoAccept(!autoAccept)
                 return nil
             }
         }
